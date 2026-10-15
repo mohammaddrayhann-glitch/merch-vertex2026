@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Divisi Keuangan - TBM VERTEX FK UNEJ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        olive: '#414a2b',
+                        maroon: '#7b2c34',
+                        lightbg: '#f8f9fa'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .tab-active { border-bottom: 2px solid #7b2c34; color: #7b2c34; font-weight: 600; }
+        .hidden-view { display: none !important; }
+        .modal { background-color: rgba(0, 0, 0, 0.5); }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-20 items-center">
+                <div class="flex flex-col cursor-pointer" onclick="navigateTo('public-view')">
+                    <div class="flex items-center">
+                        <span class="text-3xl font-extrabold text-olive tracking-tight">Divisi Keuangan</span>
+                        <div class="ml-2 flex items-end h-8">
+                            <div class="w-2 h-3 bg-olive mx-0.5"></div>
+                            <div class="w-2 h-5 bg-olive mx-0.5"></div>
+                            <div class="w-3 h-8 bg-olive mx-0.5 relative" style="clip-path: polygon(0 20%, 50% 0, 100% 20%, 100% 100%, 0 100%);"></div>
+                        </div>
+                    </div>
+                    <div class="w-full h-1 bg-maroon mt-1"></div>
+                    <span class="text-xs font-semibold text-gray-500 mt-1">TBM VERTEX FK Universitas Jember</span>
+                </div>
+
+                <nav id="admin-nav" class="hidden space-x-6">
+                    <button onclick="switchAdminTab('dashboard')" class="admin-tab tab-active pb-1 hover:text-maroon transition">Dashboard</button>
+                    <button onclick="switchAdminTab('produk')" class="admin-tab pb-1 hover:text-maroon transition">Produk</button>
+                    <button onclick="switchAdminTab('order')" class="admin-tab pb-1 hover:text-maroon transition relative">
+                        Order Masuk <span id="order-badge" class="absolute -top-2 -right-3 bg-maroon text-white text-[10px] px-1.5 py-0.5 rounded-full hidden">0</span>
+                    </button>
+                    <button onclick="switchAdminTab('transaksi')" class="admin-tab pb-1 hover:text-maroon transition">Transaksi</button>
+                    <button onclick="switchAdminTab('laporan')" class="admin-tab pb-1 hover:text-maroon transition">Laporan</button>
+                    <button onclick="switchAdminTab('profil')" class="admin-tab pb-1 hover:text-maroon transition">Profil</button>
+                </nav>
+
+                <div class="flex items-center space-x-4">
+                    <button id="cart-btn" onclick="toggleCart()" class="relative p-2 text-olive hover:text-maroon transition">
+                        <i class="fas fa-shopping-cart text-xl"></i>
+                        <span id="cart-count" class="absolute top-0 right-0 bg-maroon text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">0</span>
+                    </button>
+                    
+                    <button id="login-btn" onclick="openLoginModal()" class="bg-olive hover:bg-[#2d331e] text-white px-5 py-2 rounded-md font-medium transition shadow-sm">Login</button>
+                    <button id="logout-btn" onclick="logout()" class="hidden bg-red-100 hover:bg-red-200 text-red-600 px-5 py-2 rounded-md font-medium transition shadow-sm">Logout</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <div id="public-view" class="view-section">
+            <div class="text-center mb-10">
+                <h1 class="text-3xl font-bold text-olive mb-3">Official Merchandise</h1>
+                <p class="text-gray-500 max-w-xl mx-auto">Dukung kegiatan TBM VERTEX dengan membeli merchandise resmi kami. Kualitas terbaik untuk pengalaman terbaik.</p>
+            </div>
+            
+            <div id="public-products-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div class="col-span-full text-center py-10 text-gray-400"><i class="fas fa-spinner fa-spin text-2xl"></i> Menghubungkan ke Database Firebase...</div>
+            </div>
+        </div>
+
+        <div id="admin-view" class="view-section hidden-view">
+            <div id="tab-dashboard" class="admin-content">
+                <h2 class="text-2xl font-bold text-olive mb-6">Overview Keuangan</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
+                        <div class="bg-green-100 p-4 rounded-lg text-green-600 mr-4"><i class="fas fa-wallet text-xl"></i></div>
+                        <div><p class="text-sm text-gray-500 font-medium">Saldo Saat Ini</p><h3 class="text-2xl font-bold text-olive" id="dash-saldo">Rp 0</h3></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
+                        <div class="bg-blue-100 p-4 rounded-lg text-blue-600 mr-4"><i class="fas fa-arrow-down text-xl"></i></div>
+                        <div><p class="text-sm text-gray-500 font-medium">Total Pemasukan</p><h3 class="text-2xl font-bold text-olive" id="dash-pemasukan">Rp 0</h3></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
+                        <div class="bg-red-100 p-4 rounded-lg text-red-600 mr-4"><i class="fas fa-arrow-up text-xl"></i></div>
+                        <div><p class="text-sm text-gray-500 font-medium">Total Pengeluaran</p><h3 class="text-2xl font-bold text-olive" id="dash-pengeluaran">Rp 0</h3></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-produk" class="admin-content hidden-view">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-olive">Manajemen Produk</h2>
+                    <button onclick="toggleElement('form-tambah-produk')" class="bg-maroon hover:bg-[#5a2026] text-white px-4 py-2 rounded-md font-medium text-sm"><i class="fas fa-plus mr-2"></i> Tambah Produk</button>
+                </div>
+                <div id="form-tambah-produk" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6 hidden">
+                    <form id="productForm" onsubmit="saveProduct(event)">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium mb-1">Nama Produk</label><input type="text" id="prod-name" required class="w-full border rounded-md p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Kategori</label><select id="prod-category" required class="w-full border rounded-md p-2"><option value="Pakaian">Pakaian</option><option value="Aksesoris">Aksesoris</option><option value="Lainnya">Lainnya</option></select></div>
+                            <div><label class="block text-sm font-medium mb-1">Harga Jual (Rp)</label><input type="number" id="prod-price" required class="w-full border rounded-md p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Stok Awal</label><input type="number" id="prod-stock" required class="w-full border rounded-md p-2"></div>
+                            <div class="md:col-span-2"><label class="block text-sm font-medium mb-1">URL Gambar</label><input type="url" id="prod-image" placeholder="https://..." required class="w-full border rounded-md p-2"></div>
+                        </div>
+                        <div class="mt-4 flex justify-end"><button type="submit" class="bg-olive text-white px-5 py-2 rounded-md hover:bg-[#2d331e]">Simpan Produk</button></div>
+                    </form>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produk</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stok</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th></tr>
+                        </thead>
+                        <tbody id="admin-products-table" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tab-order" class="admin-content hidden-view">
+                <h2 class="text-2xl font-bold text-olive mb-6">Order Masuk</h2>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pelanggan</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Alamat</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pesanan</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th></tr>
+                        </thead>
+                        <tbody id="admin-orders-table" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tab-transaksi" class="admin-content hidden-view">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-olive">Riwayat Transaksi</h2>
+                    <button onclick="toggleElement('form-tambah-transaksi')" class="bg-maroon hover:bg-[#5a2026] text-white px-4 py-2 rounded-md text-sm"><i class="fas fa-plus mr-2"></i> Input Manual</button>
+                </div>
+                <div id="form-tambah-transaksi" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6 hidden">
+                    <form onsubmit="saveTransaction(event)">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium mb-1">Jenis</label><select id="trx-type" required class="w-full border rounded-md p-2"><option value="Pemasukan">Pemasukan</option><option value="Pengeluaran">Pengeluaran</option></select></div>
+                            <div><label class="block text-sm font-medium mb-1">Keterangan</label><input type="text" id="trx-desc" required class="w-full border rounded-md p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Nominal (Rp)</label><input type="number" id="trx-amount" required class="w-full border rounded-md p-2"></div>
+                        </div>
+                        <div class="mt-4 flex justify-end"><button type="submit" class="bg-olive text-white px-5 py-2 rounded-md">Simpan Transaksi</button></div>
+                    </form>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th></tr>
+                        </thead>
+                        <tbody id="admin-trx-table" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tab-laporan" class="admin-content hidden-view">
+                <h2 class="text-2xl font-bold text-olive mb-6">Laporan Keuangan</h2>
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-6 pb-4 border-b">
+                        <div><h3 class="text-xl font-bold text-gray-800">Buku Kas Umum</h3></div>
+                        <div class="text-right"><p class="text-sm text-gray-500">Saldo Akhir</p><p class="text-3xl font-bold text-olive" id="lap-saldo">Rp 0</p></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-8 mb-8">
+                        <div><p class="text-sm text-gray-500 mb-1">Total Pemasukan</p><p class="text-2xl font-semibold text-green-600" id="lap-pemasukan">Rp 0</p></div>
+                        <div><p class="text-sm text-gray-500 mb-1">Total Pengeluaran</p><p class="text-2xl font-semibold text-red-600" id="lap-pengeluaran">Rp 0</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-profil" class="admin-content hidden-view">
+                <h2 class="text-2xl font-bold text-olive mb-6">Profil Administrator</h2>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-2xl">
+                    <div class="flex items-center space-x-6 mb-8 pb-8 border-b">
+                        <div class="bg-olive text-white h-24 w-24 rounded-full flex items-center justify-center text-4xl font-bold">A</div>
+                        <div><h3 class="text-2xl font-bold text-gray-900">Admin Keuangan</h3><p class="text-gray-500">Divisi Keuangan Merchandise</p></div>
+                    </div>
+                    <h4 class="text-lg font-bold mb-4">Ganti Password</h4>
+                    <form onsubmit="changePassword(event)" class="space-y-4">
+                        <div><label class="block text-sm font-medium mb-1">Password Lama</label><input type="password" id="old-pass" required class="w-full border rounded-md p-2"></div>
+                        <div><label class="block text-sm font-medium mb-1">Password Baru</label><input type="password" id="new-pass" required class="w-full border rounded-md p-2"></div>
+                        <button type="submit" class="bg-maroon hover:bg-[#5a2026] text-white px-5 py-2 rounded-md">Update Password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="cart-drawer" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black opacity-50 cursor-pointer" onclick="toggleCart()"></div>
+        <div class="absolute inset-y-0 right-0 max-w-md w-full bg-white shadow-xl flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b">
+                <h2 class="text-lg font-bold text-olive">Keranjang Belanja</h2>
+                <button onclick="toggleCart()" class="text-gray-400"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div id="cart-items-container" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+            <div class="p-4 border-t bg-gray-50">
+                <div class="flex justify-between mb-4"><span class="font-bold">Total:</span><span class="font-bold text-olive text-xl" id="cart-total">Rp 0</span></div>
+                <button onclick="openCheckoutModal()" class="w-full bg-maroon text-white py-3 rounded-lg font-bold">Lanjut Checkout</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="checkout-modal" class="fixed inset-0 z-50 hidden modal flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-olive p-4 text-white flex justify-between items-center">
+                <h3 class="font-bold text-lg">Detail Pengiriman</h3>
+                <button onclick="closeCheckoutModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6">
+                <form onsubmit="submitOrder(event)" class="space-y-4">
+                    <div><label class="block text-sm font-medium mb-1">Nama Lengkap</label><input type="text" id="co-name" required class="w-full border p-2 rounded"></div>
+                    <div><label class="block text-sm font-medium mb-1">No. WhatsApp</label><input type="number" id="co-wa" required class="w-full border p-2 rounded"></div>
+                    <div><label class="block text-sm font-medium mb-1">Alamat Lengkap Pengiriman</label><textarea id="co-address" required rows="3" class="w-full border p-2 rounded"></textarea></div>
+                    <button type="submit" class="w-full bg-olive text-white py-2 rounded font-bold hover:bg-[#2d331e]">Kirim Pesanan</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="success-modal" class="fixed inset-0 z-50 hidden modal flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-check text-4xl text-green-500"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-olive mb-2">Pemesanan Sukses!</h2>
+            <p class="text-gray-600 text-lg font-medium mb-6">pesanan kami proses terimakasih telah membeli produk TBM VERTEX</p>
+            <button onclick="closeSuccessModal()" class="w-full bg-olive hover:bg-[#2d331e] text-white py-3 rounded-lg font-bold">Tutup</button>
+        </div>
+    </div>
+
+    <div id="login-modal" class="fixed inset-0 z-50 hidden modal flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div class="p-6">
+                <div class="text-center mb-6"><h2 class="text-2xl font-bold text-olive">Login Admin</h2></div>
+                <form onsubmit="handleLogin(event)">
+                    <div class="mb-4"><label class="block text-sm font-medium mb-1">Username</label><input type="text" id="login-user" required class="w-full border p-2 rounded"></div>
+                    <div class="mb-6"><label class="block text-sm font-medium mb-1">Password</label><input type="password" id="login-pass" required class="w-full border p-2 rounded"></div>
+                    <div id="login-error" class="text-red-500 text-sm mb-4 hidden">Username/password salah!</div>
+                    <div class="flex justify-between items-center">
+                        <button type="button" onclick="closeLoginModal()" class="text-gray-500 text-sm">Batal</button>
+                        <button type="submit" class="bg-olive text-white px-6 py-2 rounded font-medium">Masuk</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9kUlC-08i_ZLpDUrnkcskh6zzLpbMsRo",
+            authDomain: "divisi-keuangan-store.firebaseapp.com",
+            projectId: "divisi-keuangan-store",
+            storageBucket: "divisi-keuangan-store.firebasestorage.app",
+            messagingSenderId: "145473393451",
+            appId: "1:145473393451:web:2a9badafe5e74c265fab6e",
+            measurementId: "G-P18ZV7PZ2N"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let isAdmin = localStorage.getItem('isAdmin') === 'true';
+        let currentAdminPass = localStorage.getItem('adminPass') || 'admin';
+        let products = [], orders = [], transactions = [];
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+        const formatRp = (num) => 'Rp ' + parseInt(num).toLocaleString('id-ID');
+        const toggleElement = (id) => document.getElementById(id).classList.toggle('hidden');
+
+        window.onload = () => {
+            setupFirebaseListeners();
+            updateUIVisibility();
+            renderCart();
+        };
+
+        function setupFirebaseListeners() {
+            db.collection("products").onSnapshot((snapshot) => {
+                products = [];
+                snapshot.forEach((doc) => products.push({ id: doc.id, ...doc.data() }));
+                renderPublicProducts();
+                if(isAdmin) renderAdminProducts();
+            }, (error) => {
+                console.error("Firebase Error:", error);
+                document.getElementById('public-products-grid').innerHTML = `<div class="col-span-full text-center py-10 text-red-500 font-bold">Gagal terhubung ke Database. Pastikan Aturan Firestore (Rules) diatur menjadi 'allow read, write: if true;'.</div>`;
+            });
+
+            db.collection("orders").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
+                orders = [];
+                snapshot.forEach((doc) => orders.push({ id: doc.id, ...doc.data() }));
+                if(isAdmin) renderAdminOrders();
+            }, (err) => console.log("Gagal memuat orders:", err));
+
+            db.collection("transactions").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
+                transactions = [];
+                snapshot.forEach((doc) => transactions.push({ id: doc.id, ...doc.data() }));
+                if(isAdmin) { renderAdminTransactions(); calculateDashboard(); }
+            }, (err) => console.log("Gagal memuat transaksi:", err));
+        }
+
+        function renderPublicProducts() {
+            const grid = document.getElementById('public-products-grid');
+            if (products.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500">Belum ada produk. Silakan tambahkan dari panel admin.</div>`;
+                return;
+            }
+            grid.innerHTML = products.map(p => `
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+                    <div class="h-48 overflow-hidden bg-gray-100 relative">
+                        <img src="${p.image}" class="w-full h-full object-cover">
+                        <span class="absolute top-2 left-2 bg-olive text-white text-[10px] px-2 py-1 rounded-full uppercase">${p.category}</span>
+                        ${p.stock <= 0 ? `<div class="absolute inset-0 bg-white/70 flex items-center justify-center"><span class="bg-red-500 text-white font-bold px-4 py-1 rounded">HABIS</span></div>` : ''}
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-800 text-lg mb-1 truncate">${p.name}</h3>
+                        <p class="text-maroon font-bold text-lg mb-3">${formatRp(p.price)}</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500">Stok: ${p.stock}</span>
+                            <button onclick="addToCart('${p.id}')" ${p.stock <= 0 ? 'disabled' : ''} class="bg-olive hover:bg-[#2d331e] disabled:bg-gray-300 text-white p-2 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-plus text-sm"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product || product.stock <= 0) return;
+            const existing = cart.find(item => item.id === productId);
+            if (existing) {
+                if(existing.qty < product.stock) existing.qty += 1;
+            } else {
+                cart.push({ id: product.id, name: product.name, price: product.price, image: product.image, qty: 1 });
+            }
+            saveCart(); renderCart();
+        }
+        function removeFromCart(index) { cart.splice(index, 1); saveCart(); renderCart(); }
+        function saveCart() { localStorage.setItem('cart', JSON.stringify(cart)); }
+        function renderCart() {
+            const container = document.getElementById('cart-items-container');
+            let totalQty = 0, totalPrice = 0;
+            if (cart.length === 0) {
+                container.innerHTML = `<div class="text-center text-gray-400 py-10">Keranjang kosong</div>`;
+            } else {
+                container.innerHTML = cart.map((item, i) => {
+                    totalQty += item.qty; totalPrice += (item.price * item.qty);
+                    return `<div class="flex items-center gap-3 bg-white p-2 border rounded-lg">
+                        <img src="${item.image}" class="w-16 h-16 object-cover rounded">
+                        <div class="flex-1">
+                            <h4 class="font-bold text-sm text-gray-800 line-clamp-1">${item.name}</h4>
+                            <p class="text-maroon text-sm font-semibold">${formatRp(item.price)}</p>
+                            <p class="text-xs font-bold mt-1">Qty: ${item.qty}</p>
+                        </div>
+                        <button onclick="removeFromCart(${i})" class="text-red-400 p-2"><i class="fas fa-trash"></i></button>
+                    </div>`;
+                }).join('');
+            }
+            document.getElementById('cart-count').innerText = totalQty;
+            document.getElementById('cart-total').innerText = formatRp(totalPrice);
+        }
+
+        function toggleCart() { document.getElementById('cart-drawer').classList.toggle('hidden'); }
+        function openCheckoutModal() { 
+            if(cart.length === 0) return alert('Keranjang kosong!');
+            toggleCart(); document.getElementById('checkout-modal').classList.remove('hidden'); 
+        }
+        function closeCheckoutModal() { document.getElementById('checkout-modal').classList.add('hidden'); }
+        function closeSuccessModal() { document.getElementById('success-modal').classList.add('hidden'); }
+
+        function submitOrder(e) {
+            e.preventDefault();
+            const orderData = {
+                name: document.getElementById('co-name').value,
+                wa: document.getElementById('co-wa').value,
+                address: document.getElementById('co-address').value,
+                total: cart.reduce((sum, item) => sum + (item.price * item.qty), 0),
+                items: cart,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection("orders").add(orderData).then(() => {
+                cart = []; saveCart(); renderCart();
+                closeCheckoutModal(); 
+                document.getElementById('success-modal').classList.remove('hidden');
+                e.target.reset();
+            }).catch(error => {
+                alert('Gagal! Pastikan aturan baca/tulis Firestore sudah terbuka: ' + error.message);
+            });
+        }
+
+        function openLoginModal() { document.getElementById('login-modal').classList.remove('hidden'); }
+        function closeLoginModal() { document.getElementById('login-modal').classList.add('hidden'); document.getElementById('login-error').classList.add('hidden'); }
+        function handleLogin(e) {
+            e.preventDefault();
+            if (document.getElementById('login-user').value === 'admin' && document.getElementById('login-pass').value === currentAdminPass) {
+                isAdmin = true; localStorage.setItem('isAdmin', 'true');
+                closeLoginModal(); updateUIVisibility(); switchAdminTab('dashboard');
+            } else document.getElementById('login-error').classList.remove('hidden');
+        }
+        function logout() { isAdmin = false; localStorage.removeItem('isAdmin'); updateUIVisibility(); }
+        function updateUIVisibility() {
+            if (isAdmin) {
+                document.getElementById('login-btn').classList.add('hidden');
+                document.getElementById('logout-btn').classList.remove('hidden');
+                document.getElementById('cart-btn').classList.add('hidden');
+                document.getElementById('admin-nav').classList.remove('hidden');
+                document.getElementById('admin-nav').classList.add('flex');
+                navigateTo('admin-view');
+            } else {
+                document.getElementById('login-btn').classList.remove('hidden');
+                document.getElementById('logout-btn').classList.add('hidden');
+                document.getElementById('cart-btn').classList.remove('hidden');
+                document.getElementById('admin-nav').classList.add('hidden');
+                document.getElementById('admin-nav').classList.remove('flex');
+                navigateTo('public-view');
+            }
+        }
+        function navigateTo(v) { document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden-view')); document.getElementById(v).classList.remove('hidden-view'); }
+        function switchAdminTab(t) { document.querySelectorAll('.admin-content').forEach(el => el.classList.add('hidden-view')); document.getElementById(`tab-${t}`).classList.remove('hidden-view'); document.querySelectorAll('.admin-tab').forEach(el => el.classList.remove('tab-active')); event.currentTarget.classList.add('tab-active'); }
+
+        function saveProduct(e) {
+            e.preventDefault();
+            db.collection("products").add({
+                name: document.getElementById('prod-name').value,
+                category: document.getElementById('prod-category').value,
+                price: parseInt(document.getElementById('prod-price').value),
+                stock: parseInt(document.getElementById('prod-stock').value),
+                image: document.getElementById('prod-image').value,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                document.getElementById('productForm').reset();
+                toggleElement('form-tambah-produk');
+            }).catch(err => alert("Gagal Simpan! Error: " + err.message));
+        }
+
+        function deleteProduct(id) {
+            if(confirm('Hapus produk ini?')) {
+                db.collection("products").doc(id).delete()
+                .catch(err => alert("Gagal menghapus! Error: " + err.message));
+            }
+        }
+
+        function renderAdminProducts() {
+            document.getElementById('admin-products-table').innerHTML = products.map(p => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="flex items-center"><img src="${p.image}" class="h-10 w-10 object-cover mr-3"><span class="font-medium">${p.name}</span></div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${p.category}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold">${formatRp(p.price)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${p.stock}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right"><button onclick="deleteProduct('${p.id}')" class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAdminOrders() {
+            const b = document.getElementById('order-badge');
+            b.classList[orders.length > 0 ? 'remove' : 'add']('hidden');
+            b.innerText = orders.length;
+
+            document.getElementById('admin-orders-table').innerHTML = orders.map(o => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold">${o.name}<br><a href="https://wa.me/${o.wa}" target="_blank" class="text-green-600 text-xs"><i class="fab fa-whatsapp"></i> ${o.wa}</a></td>
+                    <td class="px-6 py-4 text-sm max-w-xs truncate" title="${o.address}">${o.address}</td>
+                    <td class="px-6 py-4 text-sm">${o.items.map(i => `${i.name} (${i.qty}x)`).join('<br>')}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-maroon">${formatRp(o.total)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
+                        <button onclick="acceptOrder('${o.id}')" class="bg-green-100 text-green-700 px-3 py-1 rounded">Terima</button>
+                        <button onclick="rejectOrder('${o.id}')" class="bg-red-100 text-red-700 px-3 py-1 rounded">Tolak</button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        async function acceptOrder(id) {
+            if(!confirm('Terima pesanan ini? Stok akan otomatis dikurangi dan dicatat ke Pemasukan.')) return;
+            const order = orders.find(o => o.id === id);
+            try {
+                for(let item of order.items) {
+                    const doc = await db.collection("products").doc(item.id).get();
+                    if(doc.exists) await db.collection("products").doc(item.id).update({ stock: doc.data().stock - item.qty });
+                }
+                await db.collection("transactions").add({ type: "Pemasukan", desc: `Penjualan Online: ${order.name}`, amount: order.total, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+                await db.collection("orders").doc(id).delete();
+                alert('Pesanan Diterima!');
+            } catch (err) { alert("Error Firebase: " + err.message); }
+        }
+
+        function rejectOrder(id) { if(confirm('Tolak pesanan?')) db.collection("orders").doc(id).delete(); }
+
+        function saveTransaction(e) {
+            e.preventDefault();
+            db.collection("transactions").add({
+                type: document.getElementById('trx-type').value,
+                desc: document.getElementById('trx-desc').value,
+                amount: parseInt(document.getElementById('trx-amount').value),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => { document.getElementById('form-tambah-transaksi').classList.add('hidden'); e.target.reset(); });
+        }
+
+        function renderAdminTransactions() {
+            document.getElementById('admin-trx-table').innerHTML = transactions.map(t => {
+                const isInc = t.type === 'Pemasukan';
+                return `<tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${t.timestamp ? new Date(t.timestamp.toDate()).toLocaleDateString('id-ID') : 'Baru'}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded-full ${isInc ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${t.type}</span></td>
+                    <td class="px-6 py-4 text-sm">${t.desc}</td>
+                    <td class="px-6 py-4 text-sm font-bold text-right ${isInc ? 'text-green-600' : 'text-red-600'}">${formatRp(t.amount)}</td>
+                    <td class="px-6 py-4 text-right"><button onclick="db.collection('transactions').doc('${t.id}').delete()" class="text-red-500"><i class="fas fa-trash"></i></button></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function calculateDashboard() {
+            let pemasukan = 0, pengeluaran = 0;
+            transactions.forEach(t => { t.type === 'Pemasukan' ? pemasukan += t.amount : pengeluaran += t.amount; });
+            document.getElementById('dash-pemasukan').innerText = document.getElementById('lap-pemasukan').innerText = formatRp(pemasukan);
+            document.getElementById('dash-pengeluaran').innerText = document.getElementById('lap-pengeluaran').innerText = formatRp(pengeluaran);
+            document.getElementById('dash-saldo').innerText = document.getElementById('lap-saldo').innerText = formatRp(pemasukan - pengeluaran);
+        }
+
+        function changePassword(e) {
+            e.preventDefault();
+            if(document.getElementById('old-pass').value !== currentAdminPass) return alert('Password lama salah!');
+            currentAdminPass = document.getElementById('new-pass').value;
+            localStorage.setItem('adminPass', currentAdminPass);
+            alert('Password diubah!'); e.target.reset();
+        }
+    </script>
+</body>
+</html>
